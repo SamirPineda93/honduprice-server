@@ -194,13 +194,15 @@ app.post('/buscar', async (req, res) => {
   const { producto } = req.body;
   if (!producto) return res.status(400).json({ error: 'Falta el producto' });
 
-  console.log(`\nBuscando: "${producto}"`);
+  // Normalizar búsqueda: agregar espacio entre letras y números (magic7 -> magic 7)
+  const productoNorm = producto.replace(/([a-zA-Z])([0-9])/g, '$1 $2').replace(/([0-9])([a-zA-Z])/g, '$1 $2');
+  console.log(`\nBuscando: "${productoNorm}"`);
 
   try {
     const [gallo, jetstereo, diunsa] = await Promise.allSettled([
-      buscarGallo(producto),
-      buscarJetstereo(producto),
-      buscarDiunsa(producto)
+      buscarGallo(productoNorm),
+      buscarJetstereo(productoNorm),
+      buscarDiunsa(productoNorm)
     ]);
 
     const resultados = [gallo, jetstereo, diunsa]
@@ -213,7 +215,7 @@ app.post('/buscar', async (req, res) => {
       return res.status(404).json({ error: 'No se encontraron resultados en las tiendas' });
     }
 
-    const analisis = await analizarConIA(producto, resultados);
+    const analisis = await analizarConIA(productoNorm, resultados);
 
     // Asegurar que todas las tiendas aparezcan
     const tiendasEnAnalisis = new Set(analisis.productos.map(p => p.tienda));
@@ -231,9 +233,8 @@ app.post('/buscar', async (req, res) => {
 
     // Ordenar por precio
     analisis.productos.sort((a, b) => {
-      const precioA = parseFloat(a.precio.replace(/,/g, '').replace(/[^0-9.]/g, '')) || 999999;
-      const precioB = parseFloat(b.precio.replace(/,/g, '').replace(/[^0-9.]/g, '')) || 999999;
-      return precioA - precioB;
+      const limpiar = p => parseFloat((p.precio || '').replace(/L\.?\s*/gi, '').replace(/,/g, '').trim()) || 999999;
+      return limpiar(a) - limpiar(b);
     });
 
     res.json(analisis);
