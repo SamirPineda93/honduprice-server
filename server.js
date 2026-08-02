@@ -38,7 +38,8 @@ async function buscarGallo(producto) {
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
       const precioOriginal = h.price?.HNL?.default_original_formated || '';
       const detalle = precioOriginal ? `Precio regular: ${precioOriginal}` : 'Precio en línea';
-      return { nombre, precio, detalle };
+      const url = h.url || `https://www.elgallomasgallo.com.hn/search?q=${encodeURIComponent(nombre)}`;
+      return { nombre, precio, detalle, url };
     }).filter(r => r.nombre && r.precio);
 
     console.log(`El Gallo: ${resultados.length} resultados`);
@@ -83,7 +84,9 @@ async function buscarJetstereo(producto) {
         } catch (e) {}
       }
       const detalle = r.main_category?.raw || 'Disponible';
-      return { nombre, precio, detalle };
+      const slug = r.slug?.raw || '';
+      const url = slug ? `https://www.jetstereo.com/product/${slug}` : `https://www.jetstereo.com/resultados-de-busqueda?q=${encodeURIComponent(nombre)}`;
+      return { nombre, precio, detalle, url };
     }).filter(r => r.nombre && r.precio);
 
     console.log(`Jetstereo: ${resultados.length} resultados`);
@@ -128,7 +131,9 @@ async function buscarDiunsa(producto) {
       const precioVal = item.newPrice || item.oldPrice || '';
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
       const detalle = item.discount && parseFloat(item.discount) > 0 ? `${Math.round(parseFloat(item.discount))}% de descuento` : 'Precio en línea';
-      return { nombre, precio, detalle };
+      const slug = item.slug || '';
+      const url = slug ? `https://www.diunsa.hn/${slug}` : `https://www.diunsa.hn/todos?search=${encodeURIComponent(nombre)}`;
+      return { nombre, precio, detalle, url };
     }).filter(r => r.nombre && r.precio);
 
     console.log(`Diunsa: ${resultados.length} resultados`);
