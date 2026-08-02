@@ -85,8 +85,10 @@ async function buscarJetstereo(producto) {
       }
       const detalle = r.main_category?.raw || 'Disponible';
       const slug = r.slug?.raw || '';
+      const id = r._meta?.id || '';
+      // Store both slug and ID to match after Groq selection
       const url = slug ? `https://www.jetstereo.com/product/${slug}` : `https://www.jetstereo.com/resultados-de-busqueda?q=${encodeURIComponent(nombre)}`;
-      return { nombre, precio, detalle, url };
+      return { nombre, precio, detalle, url, _id: id, _slug: slug };
     }).filter(r => r.nombre && r.precio);
 
     console.log(`Jetstereo: ${resultados.length} resultados`);
@@ -245,10 +247,12 @@ app.post('/buscar', async (req, res) => {
       const tiendaData = resultados.find(r => r.tienda === ap.tienda);
       if (tiendaData) {
         // Buscar el producto más similar por nombre
-        const prod = tiendaData.productos.find(p => 
-          p.nombre.toLowerCase().includes(ap.nombre.toLowerCase().substring(0, 20)) ||
-          ap.nombre.toLowerCase().includes(p.nombre.toLowerCase().substring(0, 20))
-        ) || tiendaData.productos[0];
+        // Try exact match first, then partial, then first result
+        const prod = tiendaData.productos.find(p => p.nombre === ap.nombre) ||
+          tiendaData.productos.find(p => 
+            p.nombre.toLowerCase().includes(ap.nombre.toLowerCase().substring(0, 25)) ||
+            ap.nombre.toLowerCase().includes(p.nombre.toLowerCase().substring(0, 25))
+          ) || tiendaData.productos[0];
         if (prod?.url) ap.url = prod.url;
       }
       return ap;
