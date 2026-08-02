@@ -36,7 +36,7 @@ async function buscarGallo(producto) {
     const hitsFiltrados = (data.hits || []).filter(h => {
       const nombreLower = (h.name || '').toLowerCase();
       const coincidencias = kwsGallo.filter(k => nombreLower.includes(k)).length;
-      return coincidencias >= Math.min(2, kwsGallo.length);
+      return coincidencias >= 1;
     });
 
     const resultados = hitsFiltrados.slice(0, 3).map(h => {
@@ -81,7 +81,7 @@ async function buscarJetstereo(producto) {
     const resultsFiltrados = (data.results || []).filter(r => {
       const nombreLower = (r.name?.raw || '').toLowerCase();
       const coincidencias = kwsJet.filter(k => nombreLower.includes(k)).length;
-      return coincidencias >= Math.min(2, kwsJet.length);
+      return coincidencias >= 1;
     });
 
     const resultados = resultsFiltrados.slice(0, 3).map(r => {
@@ -147,7 +147,7 @@ async function buscarDiunsa(producto) {
     const itemsFiltrados = items.filter(item => {
       const nombreLower = (item.name || '').toLowerCase();
       const coincidencias = kwsDiunsa.filter(k => nombreLower.includes(k)).length;
-      return coincidencias >= Math.min(2, kwsDiunsa.length);
+      return coincidencias >= 1;
     });
 
     const resultados = itemsFiltrados.slice(0, 3).map(item => {
