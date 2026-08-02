@@ -32,14 +32,7 @@ async function buscarGallo(producto) {
       }
     );
     const data = await res.json();
-    const kwsGallo = productoNorm.toLowerCase().split(' ').filter(w => w.length > 2);
-    const hitsFiltrados = (data.hits || []).filter(h => {
-      const nombreLower = (h.name || '').toLowerCase();
-      const coincidencias = kwsGallo.filter(k => nombreLower.includes(k)).length;
-      return coincidencias >= 1;
-    });
-
-    const resultados = hitsFiltrados.slice(0, 3).map(h => {
+    const resultados = (data.hits || []).slice(0, 3).map(h => {
       const nombre = h.name || '';
       const precioVal = h.price?.HNL?.default;
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
@@ -77,14 +70,7 @@ async function buscarJetstereo(producto) {
       }
     );
     const data = await res.json();
-    const kwsJet = productoNorm.toLowerCase().split(' ').filter(w => w.length > 2);
-    const resultsFiltrados = (data.results || []).filter(r => {
-      const nombreLower = (r.name?.raw || '').toLowerCase();
-      const coincidencias = kwsJet.filter(k => nombreLower.includes(k)).length;
-      return coincidencias >= 1;
-    });
-
-    const resultados = resultsFiltrados.slice(0, 3).map(r => {
+    const resultados = (data.results || []).slice(0, 3).map(r => {
       const nombre = r.name?.raw || '';
       const precioVal = r.price_gral?.raw;
       let precio = '';
@@ -142,15 +128,7 @@ async function buscarDiunsa(producto) {
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
     const items = data.data || [];
-    // Filtrar solo productos que realmente coincidan con la búsqueda
-    const kwsDiunsa = productoNorm.toLowerCase().split(' ').filter(w => w.length > 2);
-    const itemsFiltrados = items.filter(item => {
-      const nombreLower = (item.name || '').toLowerCase();
-      const coincidencias = kwsDiunsa.filter(k => nombreLower.includes(k)).length;
-      return coincidencias >= 1;
-    });
-
-    const resultados = itemsFiltrados.slice(0, 3).map(item => {
+    const resultados = items.slice(0, 3).map(item => {
       const nombre = item.name || '';
       const precioVal = item.newPrice || item.oldPrice || '';
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
