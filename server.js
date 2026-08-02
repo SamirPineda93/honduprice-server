@@ -231,9 +231,27 @@ app.post('/buscar', async (req, res) => {
           tienda: r.tienda,
           nombre: p.nombre,
           precio: p.precio,
-          detalle: p.detalle || 'Disponible en tienda'
+          detalle: p.detalle || 'Disponible en tienda',
+          url: p.url || ''
         });
       }
+    });
+
+    // Agregar URLs a los productos del análisis de Groq
+    // Groq no devuelve URLs, las buscamos en los resultados originales
+    analisis.productos = analisis.productos.map(ap => {
+      if (ap.url) return ap;
+      // Buscar URL en resultados originales por tienda
+      const tiendaData = resultados.find(r => r.tienda === ap.tienda);
+      if (tiendaData) {
+        // Buscar el producto más similar por nombre
+        const prod = tiendaData.productos.find(p => 
+          p.nombre.toLowerCase().includes(ap.nombre.toLowerCase().substring(0, 20)) ||
+          ap.nombre.toLowerCase().includes(p.nombre.toLowerCase().substring(0, 20))
+        ) || tiendaData.productos[0];
+        if (prod?.url) ap.url = prod.url;
+      }
+      return ap;
     });
 
     // Ordenar por precio
