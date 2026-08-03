@@ -118,7 +118,7 @@ async function buscarDiunsa(producto) {
           groupCode: '0',
           officeCode: '0',
           type: 'PD',
-          sortBy: 'category',
+          sortBy: 'price',
           sortOption: 'ASC',
           search: producto,
           filter: { priceMin: null, priceMax: null, brand: null }
