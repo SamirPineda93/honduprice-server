@@ -140,7 +140,11 @@ async function buscarDiunsa(producto) {
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
       const detalle = item.discount && parseFloat(item.discount) > 0 ? `${Math.round(parseFloat(item.discount))}% de descuento` : 'Precio en línea';
       const slug = item.slug || '';
-      const url = slug ? `https://www.diunsa.hn/${slug}` : `https://www.diunsa.hn/todos?search=${encodeURIComponent(nombre)}`;
+      const code = item.externalKeys?.code || item.code || '';
+      // Use slug for direct product page, fallback to search with exact name
+      const url = slug ? `https://www.diunsa.hn/${slug}` : 
+                  code ? `https://www.diunsa.hn/todos?search=${encodeURIComponent(code)}` :
+                  `https://www.diunsa.hn/todos?search=${encodeURIComponent(nombre)}`;
       return { nombre, precio, detalle, url };
     }).filter(r => r.nombre && r.precio);
 
@@ -175,13 +179,7 @@ El usuario busca: "${producto}"
 Resultados REALES extraídos de las tiendas:
 ${resumen}
 
-INSTRUCCIONES:
-- Incluye UNA entrada por cada tienda
-- Selecciona el producto más relevante de cada tienda
-- Conserva los precios EXACTAMENTE como aparecen
-- Ordena de menor a mayor precio
-
-Responde SOLO JSON válido sin texto extra:
+INSTRUCCIONES ESTRICTAS:\n- Incluye SOLO productos que coincidan con la marca Y modelo exacto buscado\n- Si una tienda devuelve producto de marca diferente (ej: buscaron LG y aparece Frigidaire), NO lo incluyas\n- Si el modelo es diferente (ej: buscaron i5 y aparece i3, buscaron iPhone 16 y aparece iPhone 17), NO lo incluyas\n- Si una tienda no tiene el producto exacto, no la incluyas\n- Conserva los precios EXACTAMENTE como aparecen\n- Ordena de menor a mayor precio\n- En el analisis menciona si alguna tienda no tenia el producto exacto\n\nResponde SOLO JSON válido sin texto extra:
 {
   "titulo": "nombre del producto",
   "productos": [
@@ -265,10 +263,16 @@ app.post('/buscar', async (req, res) => {
     });
 
     // Ordenar por precio
-    analisis.productos.sort((a, b) => {
-      const limpiar = p => parseFloat((p.precio || '').replace(/L\.?\s*/gi, '').replace(/,/g, '').trim()) || 999999;
-      return limpiar(a) - limpiar(b);
-    });
+    const limpiarPrecio = p => parseFloat((p.precio || '').replace(/L\.?\s*/gi, '').replace(/,/g, '').trim()) || 999999;
+    analisis.productos.sort((a, b) => limpiarPrecio(a) - limpiarPrecio(b));
+    
+    // Calcular ahorro
+    if (analisis.productos.length >= 2) {
+      const precios = analisis.productos.map(limpiarPrecio).filter(p => p < 999999);
+      const minPrecio = Math.min(...precios);
+      const maxPrecio = Math.max(...precios);
+      analisis.ahorro = maxPrecio - minPrecio;
+    }
 
     res.json(analisis);
 
