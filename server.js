@@ -118,7 +118,7 @@ async function buscarDiunsa(producto) {
           groupCode: '0',
           officeCode: '0',
           type: 'PD',
-          sortBy: 'price',
+          sortBy: 'category',
           sortOption: 'ASC',
           search: producto,
           filter: { priceMin: null, priceMax: null, brand: null }
@@ -128,7 +128,13 @@ async function buscarDiunsa(producto) {
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
     const items = data.data || [];
-    const resultados = items.slice(0, 3).map(item => {
+    // Ordenar por precio antes de tomar los primeros 3
+    const itemsOrdenados = [...items].sort((a, b) => {
+      const pa = parseFloat(a.newPrice || a.oldPrice || 999999);
+      const pb = parseFloat(b.newPrice || b.oldPrice || 999999);
+      return pa - pb;
+    });
+    const resultados = itemsOrdenados.slice(0, 3).map(item => {
       const nombre = item.name || '';
       const precioVal = item.newPrice || item.oldPrice || '';
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
