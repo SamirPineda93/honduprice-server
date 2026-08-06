@@ -103,13 +103,20 @@ El usuario busca: "${producto}"
 Resultados REALES de las tiendas:
 ${resumen}
 
-INSTRUCCIONES ESTRICTAS:
-- Incluye SOLO productos que coincidan exactamente con la marca Y modelo buscado
-- Si el resultado es de marca diferente, NO lo incluyas
-- Si el modelo es diferente (ej: buscaron i5 y aparece i3, buscaron iPhone 16 y aparece iPhone 17), NO lo incluyas
-- Si una tienda no tiene el producto exacto, no la incluyas
+REGLA PRINCIPAL: El número de versión del modelo es OBLIGATORIO.
+- Si buscan "Magic 8", el "Magic 7" NO es el mismo producto aunque sea similar
+- Si buscan "iPhone 16", el "iPhone 17" NO es el mismo producto
+- Si buscan "S23", el "S24" o "S25" NO son el mismo producto
+- El nombre puede estar escrito diferente (mayúsculas, sin espacio) pero el número debe coincidir
+
+INSTRUCCIONES:
+- Incluye SOLO productos donde el número de versión coincida exactamente con el buscado
+- "CELULAR HONOR MAGIC 8 LITE" y "Honor Magic8 Lite" son el MISMO (ambos tienen 8)
+- "CELULAR HONOR MAGIC 7 LITE" NO es Magic 8 Lite (número diferente)
+- Si una tienda solo tiene versiones diferentes, no la incluyas
 - Conserva los precios EXACTAMENTE como aparecen
 - Ordena de menor a mayor precio
+- Por cada tienda incluye solo la opción más barata del modelo exacto
 
 Responde SOLO JSON sin texto extra:
 {
@@ -120,14 +127,24 @@ Responde SOLO JSON sin texto extra:
   "analisis": "2 oraciones comparando precios reales y cuál conviene más"
 }`;
 
+  console.log('\n=== ENVIANDO A GROQ ===');
+  console.log(resumen);
+  console.log('======================\n');
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
     body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
   });
   const data = await res.json();
+  if (!data.choices || !data.choices[0]) {
+    console.error('Groq response error:', JSON.stringify(data));
+    throw new Error('Groq no devolvio respuesta valida');
+  }
   const text = data.choices[0].message.content.trim().replace(/```json|```/g, '').trim();
-  return JSON.parse(text);
+  // Extraer solo el JSON si hay texto extra
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No se encontro JSON en respuesta de Groq');
+  return JSON.parse(jsonMatch[0]);
 }
 
 // ── RUTA PRINCIPAL ───────────────────────────────────────────
