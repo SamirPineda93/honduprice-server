@@ -103,6 +103,9 @@ Resultados REALES de las tiendas:
 ${resumen}
 
 REGLA PRINCIPAL: El número de versión del modelo es OBLIGATORIO.
+- Busca SOLO el producto principal, no accesorios como cobertores, cases, fundas, cargadores, audífonos, cables o repuestos
+- Si buscan "S26 Ultra", quieren el CELULAR Samsung S26 Ultra, NO cobertores ni accesorios del S26 Ultra
+- Si buscan "televisor Samsung 55", quieren el televisor, NO soportes, controles ni accesorios
 - Si buscan "Magic 8", el "Magic 7" NO es el mismo producto aunque sea similar
 - Si buscan "iPhone 16", el "iPhone 17" NO es el mismo producto
 - Si buscan "S23", el "S24" o "S25" NO son el mismo producto
@@ -132,7 +135,7 @@ Responde SOLO JSON sin texto extra:
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-    body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
   });
   console.log('Groq status:', res.status);
   const data = await res.json();
