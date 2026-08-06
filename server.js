@@ -158,30 +158,38 @@ async function buscarDiunsa(producto) {
 
 // ── PRE-FILTRO DE RELEVANCIA ────────────────────────────────
 function filtrarRelevantes(producto, resultados) {
-  // Separar palabras y números del producto buscado
   const palabras = producto.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-  const numeros = palabras.filter(w => /^\d+$/.test(w));
   const palabrasClave = palabras.filter(w => !/^(de|el|la|los|las|un|una|con|para)$/.test(w));
   
-  // Palabras que indican variante específica del modelo (deben estar todas)
+  // Números que son parte del modelo (no especificaciones como 8GB, 256GB, 4K)
+  const numerosModelo = palabras.filter(w => /^\d+$/.test(w) && parseInt(w) < 1000 && parseInt(w) > 0);
+  
+  // Variantes obligatorias del modelo
   const variantesObligatorias = palabrasClave.filter(w => 
-    /^(pro|plus|ultra|max|lite|mini|air|se|neo|qled|oled|uhd|4k|5g)$/i.test(w)
+    /^(pro|plus|ultra|max|lite|mini|air|se|neo|qled|oled|uhd|5g)$/i.test(w)
   );
 
   return resultados.map(r => {
     const productosFiltrados = r.productos.filter(p => {
       const nombreLower = p.nombre.toLowerCase();
       
-      // Si hay números en la búsqueda, deben aparecer en el nombre
-      if (numeros.length > 0) {
-        const tieneNumero = numeros.some(n => {
-          const regex = new RegExp('\\b' + n + '\\b');
-          return regex.test(nombreLower);
-        });
-        if (!tieneNumero) return false;
+      // Verificar números de modelo - deben aparecer como modelo, no como GB/RAM
+      for (const n of numerosModelo) {
+        // Buscar el número seguido de letras del modelo (no de GB, RAM, W, Hz, pulgadas)
+        const esEspecificacion = new RegExp(n + '\\s*(gb|tb|ram|hz|w|mp|mah|"|pulgadas)', 'i').test(nombreLower);
+        // El número debe aparecer en el nombre Y no solo como especificación
+        const apareceEnNombre = new RegExp('\\b' + n + '\\b').test(nombreLower);
+        
+        if (!apareceEnNombre) return false;
+        
+        // Si el número solo aparece como especificación, rechazar
+        // Contar cuántas veces aparece vs cuántas son especificaciones
+        const todasOcurrencias = (nombreLower.match(new RegExp('\\b' + n + '\\b', 'g')) || []).length;
+        const ocurrenciasEspec = (nombreLower.match(new RegExp(n + '\\s*(gb|tb|ram|hz|w|mp|mah|"|pulgadas)', 'gi')) || []).length;
+        if (todasOcurrencias === ocurrenciasEspec && ocurrenciasEspec > 0) return false;
       }
       
-      // Variantes obligatorias (pro, ultra, lite, etc.) deben estar TODAS
+      // Variantes obligatorias deben estar todas
       if (variantesObligatorias.length > 0) {
         const tieneVariantes = variantesObligatorias.every(v => nombreLower.includes(v));
         if (!tieneVariantes) return false;
@@ -192,8 +200,13 @@ function filtrarRelevantes(producto, resultados) {
       const umbral = Math.max(1, Math.ceil(palabrasClave.length * 0.6));
       return coincidencias >= umbral;
     });
-    return productosFiltrados.length > 0 ? { ...r, productos: productosFiltrados } : null;
-  }).filter(r => r !== null);
+    const productosNoFiltrados = r.productos.filter(p => !productosFiltrados.includes(p));
+    return {
+      tienda: r.tienda,
+      productos: productosFiltrados,
+      sugerencias: productosNoFiltrados
+    };
+  });
 }
 
 // ── GROQ ANÁLISIS ────────────────────────────────────────────
@@ -266,18 +279,28 @@ app.post('/buscar', async (req, res) => {
       return res.status(404).json({ error: 'No se encontraron resultados en las tiendas' });
     }
 
-    // Filtrar resultados irrelevantes antes de enviar a Groq
-    const resultadosFiltrados = filtrarRelevantes(productoNorm, resultados);
+    // Separar resultados exactos de sugerencias
+    const todosFiltrados = filtrarRelevantes(productoNorm, resultados);
+    const resultadosExactos = todosFiltrados.filter(r => r.productos.length > 0);
     
-    if (resultadosFiltrados.length === 0) {
-      return res.status(404).json({ error: 'No se encontraron resultados exactos para ese producto' });
+    // Recolectar sugerencias de todas las tiendas
+    const sugerencias = [];
+    todosFiltrados.forEach(r => {
+      r.sugerencias.forEach(p => {
+        sugerencias.push({ tienda: r.tienda, ...p });
+      });
+    });
+
+    if (resultadosExactos.length === 0 && sugerencias.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron resultados para ese producto' });
     }
-    
-    const analisis = await analizarConIA(productoNorm, resultadosFiltrados);
+
+    const analisis = await analizarConIA(productoNorm, resultadosExactos.length > 0 ? resultadosExactos : todosFiltrados);
+    analisis.sugerencias = sugerencias.slice(0, 4);
 
     // Asegurar que todas las tiendas aparezcan
     const tiendasEnAnalisis = new Set(analisis.productos.map(p => p.tienda));
-    resultadosFiltrados.forEach(r => {
+    resultadosExactos.forEach(r => {
       if (!tiendasEnAnalisis.has(r.tienda) && r.productos.length > 0) {
         const p = r.productos[0];
         analisis.productos.push({
