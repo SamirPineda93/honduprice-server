@@ -67,7 +67,7 @@ async function buscarJetstereo(producto) {
 // ── DIUNSA ───────────────────────────────────────────────────
 async function buscarDiunsa(producto) {
   try {
-    const res = await fetch('https://apicsm.dapplications.tech/api/em/material/paginate?skip=0&take=8', {
+    const res = await fetch('https://apicsm.dapplications.tech/api/em/material/paginate?skip=0&take=15', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Origin': 'https://www.diunsa.hn', 'Referer': 'https://www.diunsa.hn/' },
       body: JSON.stringify({ businessPartner: 1, storeId: null, groupCode: '0', officeCode: '0', type: 'PD', sortBy: 'category', sortOption: 'ASC', search: producto, filter: { priceMin: null, priceMax: null, brand: null } })
