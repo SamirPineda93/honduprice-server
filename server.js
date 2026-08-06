@@ -75,12 +75,12 @@ async function buscarJetstereo(producto) {
       const precioVal = r.price_gral?.raw;
       let precio = '';
       if (precioVal && !isNaN(parseFloat(precioVal))) {
-        precio = `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        precio = `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
       } else if (r.price?.raw) {
         try {
           const priceObj = typeof r.price.raw === 'string' ? JSON.parse(r.price.raw) : r.price.raw;
           const val = priceObj.sale || priceObj.regular;
-          if (val) precio = `L. ${parseFloat(val).toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          if (val) precio = `L. ${parseFloat(val).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
         } catch (e) {}
       }
       const detalle = r.main_category?.raw || 'Disponible';
