@@ -158,17 +158,28 @@ async function buscarDiunsa(producto) {
 
 // ── PRE-FILTRO DE RELEVANCIA ────────────────────────────────
 function filtrarRelevantes(producto, resultados) {
-  const palabras = producto.toLowerCase()
-    .split(/[\s\/\-]+/)
-    .filter(w => w.length > 1);
+  // Separar palabras y números del producto buscado
+  const palabras = producto.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+  const numeros = palabras.filter(w => /^\d+$/.test(w));
+  const palabrasClave = palabras.filter(w => !/^(de|el|la|los|las|un|una|con|para)$/.test(w));
   
   return resultados.map(r => {
     const productosFiltrados = r.productos.filter(p => {
       const nombreLower = p.nombre.toLowerCase();
-      // Contar cuántas palabras clave están en el nombre
-      const coincidencias = palabras.filter(w => nombreLower.includes(w)).length;
-      // Requiere al menos 50% de palabras clave coincidentes
-      const umbral = Math.max(1, Math.floor(palabras.length * 0.5));
+      
+      // Si hay números en la búsqueda (modelos como 600, 55, 16), deben aparecer en el nombre
+      if (numeros.length > 0) {
+        const tieneNumero = numeros.some(n => {
+          // El número debe aparecer como parte del modelo, no como especificación
+          const regex = new RegExp('\\b' + n + '\\b');
+          return regex.test(nombreLower);
+        });
+        if (!tieneNumero) return false;
+      }
+      
+      // Al menos 60% de palabras clave deben coincidir
+      const coincidencias = palabrasClave.filter(w => nombreLower.includes(w)).length;
+      const umbral = Math.max(1, Math.ceil(palabrasClave.length * 0.6));
       return coincidencias >= umbral;
     });
     return productosFiltrados.length > 0 ? { ...r, productos: productosFiltrados } : null;
