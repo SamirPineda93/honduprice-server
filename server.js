@@ -157,59 +157,74 @@ async function buscarDiunsa(producto) {
 }
 
 // ── PRE-FILTRO DE RELEVANCIA ────────────────────────────────
-function filtrarRelevantes(producto, resultados) {
-  const palabras = producto.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-  const palabrasClave = palabras.filter(w => !/^(de|el|la|los|las|un|una|con|para)$/.test(w));
+function esProductoExacto(nombreProducto, nombreBuscado) {
+  const buscado = nombreBuscado.toLowerCase();
+  const producto = nombreProducto.toLowerCase();
   
-  // Números que son parte del modelo (no especificaciones como 8GB, 256GB, 4K)
-  const numerosModelo = palabras.filter(w => /^\d+$/.test(w) && parseInt(w) < 1000 && parseInt(w) > 0);
+  // Extraer palabras del término buscado (ignorar artículos)
+  const ignorar = ['de', 'el', 'la', 'los', 'las', 'un', 'una', 'con', 'para', 'y', 'o'];
+  const palabrasBuscadas = buscado.split(/\s+/).filter(w => w.length > 1 && !ignorar.includes(w));
   
-  // Variantes obligatorias del modelo
-  const variantesObligatorias = palabrasClave.filter(w => 
-    /^(pro|plus|ultra|max|lite|mini|air|se|neo|qled|oled|uhd|5g)$/i.test(w)
-  );
+  // Variantes de modelo que son obligatorias (pro, lite, ultra, etc.)
+  const variantes = ['pro', 'lite', 'ultra', 'max', 'plus', 'mini', 'air', 'se', 'neo', '5g'];
+  const variantesBuscadas = palabrasBuscadas.filter(w => variantes.includes(w));
+  
+  // Números que son parte del nombre del modelo (no especificaciones)
+  // "magic 8 lite" -> 8 es modelo; "8gb" -> 8 es especificación
+  const numerosModelo = [];
+  for (let i = 0; i < palabrasBuscadas.length; i++) {
+    const w = palabrasBuscadas[i];
+    if (/^\d+$/.test(w) && parseInt(w) < 10000) {
+      // Es número de modelo si no va seguido de gb/tb/ram/etc en la búsqueda
+      const siguiente = palabrasBuscadas[i+1] || '';
+      if (!/^(gb|tb|ram|hz|w|mp|mah|pulgadas|pulg)$/i.test(siguiente)) {
+        numerosModelo.push(w);
+      }
+    }
+  }
+  
+  // 1. Verificar variantes obligatorias (pro, lite, etc.)
+  for (const v of variantesBuscadas) {
+    if (!producto.includes(v)) return false;
+  }
+  
+  // 2. Verificar números de modelo
+  for (const n of numerosModelo) {
+    // El número debe aparecer en el producto
+    // Pero NO debe aparecer SOLO como especificación (8gb, 256gb, etc.)
+    const regex = new RegExp('\\b' + n + '\\b', 'i');
+    if (!regex.test(producto)) return false;
+    
+    // Verificar que no sea solo especificación
+    const soloEspecificacion = new RegExp('\\b' + n + '\\s*(gb|tb|ram|hz|w|mp|mah|"|pulgadas)', 'i');
+    const apareceSoloComoSpec = soloEspecificacion.test(producto) && 
+      (producto.match(new RegExp('\\b' + n + '\\b', 'gi')) || []).length === 
+      (producto.match(new RegExp('\\b' + n + '\\s*(gb|tb|ram|hz|w|mp|mah|"|pulgadas)', 'gi')) || []).length;
+    
+    if (apareceSoloComoSpec) return false;
+  }
+  
+  // 3. Las palabras principales deben coincidir
+  const palabrasPrincipales = palabrasBuscadas.filter(w => !variantes.includes(w) && !/^\d+$/.test(w));
+  const coincidencias = palabrasPrincipales.filter(w => producto.includes(w)).length;
+  const umbral = Math.max(1, Math.ceil(palabrasPrincipales.length * 0.7));
+  
+  return coincidencias >= umbral;
+}
 
+function filtrarRelevantes(producto, resultados) {
   return resultados.map(r => {
-    const productosFiltrados = r.productos.filter(p => {
-      const nombreLower = p.nombre.toLowerCase();
-      
-      // Verificar números de modelo - deben aparecer como modelo, no como GB/RAM
-      for (const n of numerosModelo) {
-        // Buscar el número seguido de letras del modelo (no de GB, RAM, W, Hz, pulgadas)
-        const esEspecificacion = new RegExp(n + '\\s*(gb|tb|ram|hz|w|mp|mah|"|pulgadas)', 'i').test(nombreLower);
-        // El número debe aparecer en el nombre Y no solo como especificación
-        const apareceEnNombre = new RegExp('\\b' + n + '\\b').test(nombreLower);
-        
-        if (!apareceEnNombre) return false;
-        
-        // Si el número solo aparece como especificación, rechazar
-        // Contar cuántas veces aparece vs cuántas son especificaciones
-        const todasOcurrencias = (nombreLower.match(new RegExp('\\b' + n + '\\b', 'g')) || []).length;
-        const ocurrenciasEspec = (nombreLower.match(new RegExp(n + '\\s*(gb|tb|ram|hz|w|mp|mah|"|pulgadas)', 'gi')) || []).length;
-        if (todasOcurrencias === ocurrenciasEspec && ocurrenciasEspec > 0) return false;
-      }
-      
-      // Variantes obligatorias deben estar todas
-      if (variantesObligatorias.length > 0) {
-        const tieneVariantes = variantesObligatorias.every(v => nombreLower.includes(v));
-        if (!tieneVariantes) return false;
-      }
-      
-      // Al menos 60% de palabras clave deben coincidir
-      const coincidencias = palabrasClave.filter(w => nombreLower.includes(w)).length;
-      const umbral = Math.max(1, Math.ceil(palabrasClave.length * 0.6));
-      return coincidencias >= umbral;
-    });
-    const productosNoFiltrados = r.productos.filter(p => !productosFiltrados.includes(p));
+    const exactos = r.productos.filter(p => esProductoExacto(p.nombre, producto));
+    const sugeridos = r.productos.filter(p => !esProductoExacto(p.nombre, producto));
     return {
       tienda: r.tienda,
-      productos: productosFiltrados,
-      sugerencias: productosNoFiltrados
+      productos: exactos,
+      sugerencias: sugeridos
     };
   });
 }
 
-// ── GROQ ANÁLISIS ────────────────────────────────────────────
+// ── GROQ ANÁLISIS + CLASIFICACIÓN ──────────────────────────
 async function analizarConIA(producto, resultados) {
   const resumen = resultados.map(r =>
     `${r.tienda}:\n${r.productos.map(p => `  - ${p.nombre}: ${p.precio}`).join('\n')}`
@@ -217,50 +232,53 @@ async function analizarConIA(producto, resultados) {
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`
-    },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
-      max_tokens: 1024,
+      max_tokens: 1500,
       messages: [{
         role: 'user',
         content: `Eres HonduPrice, comparador de precios de Honduras.
-El usuario busca: "${producto}"
+El usuario busca exactamente: "${producto}"
 
-Resultados REALES extraídos de las tiendas:
+Resultados obtenidos de las tiendas:
 ${resumen}
 
-INSTRUCCIONES ESTRICTAS:\n- Incluye SOLO productos que coincidan con la marca Y modelo exacto buscado\n- Si una tienda devuelve producto de marca diferente (ej: buscaron LG y aparece Frigidaire), NO lo incluyas\n- Si el modelo es diferente (ej: buscaron i5 y aparece i3, buscaron iPhone 16 y aparece iPhone 17), NO lo incluyas\n- Si una tienda no tiene el producto exacto, no la incluyas\n- Conserva los precios EXACTAMENTE como aparecen\n- Ordena de menor a mayor precio\n- En el analisis menciona si alguna tienda no tenia el producto exacto\n\nResponde SOLO JSON válido sin texto extra:
+Tu tarea es clasificar CADA producto en dos categorías:
+1. "productos": Los que son EXACTAMENTE el modelo buscado (misma marca, mismo modelo, mismo número de versión)
+2. "sugerencias": Los que son similares pero NO son exactamente el modelo buscado (diferente número de versión, diferente variante, etc.)
+
+Ejemplo: si buscan "Honor Magic 8 Lite", el "Honor Magic 7 Lite" va en sugerencias, el "Honor Magic 8 Lite" va en productos.
+Ejemplo: si buscan "iPhone 16", el "iPhone 17" va en sugerencias, el "iPhone 16" va en productos.
+Ejemplo: si buscan "Samsung 55 4K", el "Samsung 65 4K" va en sugerencias.
+
+Responde SOLO JSON válido sin texto extra:
 {
-  "titulo": "nombre del producto",
+  "titulo": "nombre del producto buscado",
   "productos": [
     {
       "tienda": "nombre exacto de la tienda",
       "nombre": "nombre exacto del producto",
       "precio": "precio exacto",
-      "detalle": "característica breve",
-      "exacto": true
+      "detalle": "característica breve"
     }
   ],
   "sugerencias_ia": [
     {
       "tienda": "nombre exacto de la tienda",
-      "nombre": "nombre del producto relacionado",
+      "nombre": "nombre exacto del producto",
       "precio": "precio exacto",
-      "detalle": "por qué es similar"
+      "detalle": "por qué es similar pero diferente"
     }
   ],
-  "analisis": "2 oraciones comparando precios exactos y cuál conviene más"
+  "analisis": "2 oraciones comparando los precios exactos encontrados y cuál conviene más"
 }
-En "productos" pon SOLO los que coinciden exactamente con marca y modelo buscado.
-En "sugerencias_ia" pon los que son similares pero no son exactamente el modelo buscado.`
+Ordena productos de menor a mayor precio. Si no hay productos exactos, deja productos vacío y pon todo en sugerencias.`
       }]
     })
   });
   const data = await res.json();
-  const text = data.choices[0].message.content.trim().replace(/```json|```/g, '').trim();
+  const text = data.choices[0].message.content.trim().replace(/\`\`\`json|\`\`\`/g, '').trim();
   return JSON.parse(text);
 }
 
@@ -327,7 +345,7 @@ app.post('/buscar', async (req, res) => {
 
     // Asegurar que todas las tiendas aparezcan
     const tiendasEnAnalisis = new Set(analisis.productos.map(p => p.tienda));
-    resultadosExactos.forEach(r => {
+    resultados.forEach(r => {
       if (!tiendasEnAnalisis.has(r.tienda) && r.productos.length > 0) {
         const p = r.productos[0];
         analisis.productos.push({
