@@ -134,10 +134,11 @@ Responde SOLO JSON sin texto extra:
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
     body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
   });
+  console.log('Groq status:', res.status);
   const data = await res.json();
   if (!data.choices || !data.choices[0]) {
-    console.error('Groq response error:', JSON.stringify(data));
-    throw new Error('Groq no devolvio respuesta valida');
+    console.error('Groq response error:', JSON.stringify(data).substring(0, 500));
+    throw new Error('Groq no devolvio respuesta valida: ' + JSON.stringify(data).substring(0, 200));
   }
   const text = data.choices[0].message.content.trim().replace(/```json|```/g, '').trim();
   // Extraer solo el JSON si hay texto extra
