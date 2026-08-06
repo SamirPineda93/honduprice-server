@@ -156,6 +156,25 @@ async function buscarDiunsa(producto) {
   }
 }
 
+// ── PRE-FILTRO DE RELEVANCIA ────────────────────────────────
+function filtrarRelevantes(producto, resultados) {
+  const palabras = producto.toLowerCase()
+    .split(/[\s\/\-]+/)
+    .filter(w => w.length > 1);
+  
+  return resultados.map(r => {
+    const productosFiltrados = r.productos.filter(p => {
+      const nombreLower = p.nombre.toLowerCase();
+      // Contar cuántas palabras clave están en el nombre
+      const coincidencias = palabras.filter(w => nombreLower.includes(w)).length;
+      // Requiere al menos 50% de palabras clave coincidentes
+      const umbral = Math.max(1, Math.floor(palabras.length * 0.5));
+      return coincidencias >= umbral;
+    });
+    return productosFiltrados.length > 0 ? { ...r, productos: productosFiltrados } : null;
+  }).filter(r => r !== null);
+}
+
 // ── GROQ ANÁLISIS ────────────────────────────────────────────
 async function analizarConIA(producto, resultados) {
   const resumen = resultados.map(r =>
@@ -226,11 +245,18 @@ app.post('/buscar', async (req, res) => {
       return res.status(404).json({ error: 'No se encontraron resultados en las tiendas' });
     }
 
-    const analisis = await analizarConIA(productoNorm, resultados);
+    // Filtrar resultados irrelevantes antes de enviar a Groq
+    const resultadosFiltrados = filtrarRelevantes(productoNorm, resultados);
+    
+    if (resultadosFiltrados.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron resultados exactos para ese producto' });
+    }
+    
+    const analisis = await analizarConIA(productoNorm, resultadosFiltrados);
 
     // Asegurar que todas las tiendas aparezcan
     const tiendasEnAnalisis = new Set(analisis.productos.map(p => p.tienda));
-    resultados.forEach(r => {
+    resultadosFiltrados.forEach(r => {
       if (!tiendasEnAnalisis.has(r.tienda) && r.productos.length > 0) {
         const p = r.productos[0];
         analisis.productos.push({
