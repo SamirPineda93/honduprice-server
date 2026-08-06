@@ -75,7 +75,7 @@ async function buscarDiunsa(producto) {
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
     const items = data.data || [];
-    const resultados = items.slice(0, 12).map(item => {
+    const resultados = items.slice(0, 6).map(item => {
       const nombre = item.name || '';
       const precioVal = item.newPrice || item.oldPrice || '';
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
@@ -132,7 +132,7 @@ Responde SOLO JSON sin texto extra:
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
   });
   const data = await res.json();
   if (!data.choices || !data.choices[0]) {
