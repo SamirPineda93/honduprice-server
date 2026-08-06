@@ -19,7 +19,7 @@ async function buscarGallo(producto) {
       body: JSON.stringify({ query: producto, hitsPerPage: 8, attributesToRetrieve: ['name', 'price', 'url'], numericFilters: ['visibility_search=1'] })
     });
     const data = await res.json();
-    const resultados = (data.hits || []).slice(0, 5).map(h => {
+    const resultados = (data.hits || []).slice(0, 8).map(h => {
       const nombre = h.name || '';
       const precioVal = h.price?.HNL?.default;
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
@@ -32,7 +32,7 @@ async function buscarGallo(producto) {
   } catch (e) { console.error('El Gallo error:', e.message); return null; }
 }
 
-// ── JETSTEREO (Elastic App Search) ──────────────────────────
+// ── JETSTEREO ────────────────────────────────────────────────
 async function buscarJetstereo(producto) {
   try {
     const res = await fetch('https://jetstereo-search-engine.ent.us-west-1.aws.found.io/api/as/v1/engines/jetstereo-main-engine/search', {
@@ -41,7 +41,7 @@ async function buscarJetstereo(producto) {
       body: JSON.stringify({ query: producto, page: { current: 1, size: 8 }, filters: { all: [{ sale_status: 'AVAILABLE' }] }, precision: 3 })
     });
     const data = await res.json();
-    const resultados = (data.results || []).slice(0, 5).map(r => {
+    const resultados = (data.results || []).slice(0, 8).map(r => {
       const nombre = r.name?.raw || '';
       const precioVal = r.price_gral?.raw;
       let precio = '';
@@ -91,45 +91,39 @@ async function buscarDiunsa(producto) {
   } catch (e) { console.error('Diunsa error:', e.message); return null; }
 }
 
-// ── GROQ: CLASIFICAR EXACTOS VS SUGERENCIAS ──────────────────
+// ── GROQ ANÁLISIS ────────────────────────────────────────────
 async function analizarConIA(producto, resultados) {
   const resumen = resultados.map(r =>
     `${r.tienda}:\n${r.productos.map(p => `  - ${p.nombre}: ${p.precio}`).join('\n')}`
   ).join('\n\n');
 
   const prompt = `Eres HonduPrice, comparador de precios de Honduras.
-El usuario busca exactamente: "${producto}"
+El usuario busca: "${producto}"
 
-Resultados obtenidos de las tiendas:
+Resultados REALES de las tiendas:
 ${resumen}
 
-Clasifica CADA producto en dos categorías:
-1. "productos": Los que son EXACTAMENTE el modelo buscado (misma marca, mismo número de versión, misma variante)
-2. "sugerencias_ia": Los que son similares pero NO exactamente el modelo (diferente número, diferente variante)
-
-Ejemplos de clasificación:
-- Buscan "Honor Magic 8 Lite" → "Honor Magic 7 Lite" va en sugerencias_ia
-- Buscan "iPhone 16" → "iPhone 17" va en sugerencias_ia
-- Buscan "Samsung Galaxy S23 Ultra" → "Samsung Galaxy S23" sin Ultra va en sugerencias_ia
-- Buscan "televisor Samsung 55" → "televisor Samsung 65" va en sugerencias_ia
+INSTRUCCIONES ESTRICTAS:
+- Incluye SOLO productos que coincidan exactamente con la marca Y modelo buscado
+- Si el resultado es de marca diferente, NO lo incluyas
+- Si el modelo es diferente (ej: buscaron i5 y aparece i3, buscaron iPhone 16 y aparece iPhone 17), NO lo incluyas
+- Si una tienda no tiene el producto exacto, no la incluyas
+- Conserva los precios EXACTAMENTE como aparecen
+- Ordena de menor a mayor precio
 
 Responde SOLO JSON sin texto extra:
 {
-  "titulo": "nombre del producto buscado",
+  "titulo": "nombre del producto",
   "productos": [
-    {"tienda": "tienda exacta", "nombre": "nombre exacto", "precio": "precio exacto", "detalle": "característica"}
+    {"tienda": "nombre exacto", "nombre": "nombre exacto", "precio": "precio exacto", "detalle": "característica breve"}
   ],
-  "sugerencias_ia": [
-    {"tienda": "tienda exacta", "nombre": "nombre exacto", "precio": "precio exacto", "detalle": "por qué es similar"}
-  ],
-  "analisis": "2 oraciones comparando precios de los productos exactos"
-}
-Ordena productos de menor a mayor precio.`;
+  "analisis": "2 oraciones comparando precios reales y cuál conviene más"
+}`;
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1500, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
   });
   const data = await res.json();
   const text = data.choices[0].message.content.trim().replace(/```json|```/g, '').trim();
@@ -161,20 +155,9 @@ app.post('/buscar', async (req, res) => {
       return res.status(404).json({ error: 'No se encontraron resultados en las tiendas' });
     }
 
-    // Groq clasifica exactos vs sugerencias
     const analisis = await analizarConIA(productoNorm, resultados);
 
-    // Restaurar URLs a sugerencias de la IA
-    const sugerenciasIA = analisis.sugerencias_ia || [];
-    sugerenciasIA.forEach(s => {
-      const tiendaData = resultados.find(r => r.tienda === s.tienda);
-      if (tiendaData) {
-        const prod = tiendaData.productos.find(p => p.nombre === s.nombre) || tiendaData.productos[0];
-        if (prod?.url) s.url = prod.url;
-      }
-    });
-
-    // Restaurar URLs a productos exactos
+    // Restaurar URLs
     (analisis.productos || []).forEach(p => {
       const tiendaData = resultados.find(r => r.tienda === p.tienda);
       if (tiendaData) {
@@ -182,9 +165,6 @@ app.post('/buscar', async (req, res) => {
         if (prod?.url) p.url = prod.url;
       }
     });
-
-    analisis.sugerencias = sugerenciasIA.slice(0, 5);
-    delete analisis.sugerencias_ia;
 
     // Ordenar por precio
     (analisis.productos || []).sort((a, b) => {
