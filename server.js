@@ -141,7 +141,7 @@ app.post('/buscar', async (req, res) => {
   const { producto } = req.body;
   if (!producto) return res.status(400).json({ error: 'Falta el producto' });
 
-  const productoNorm = producto.replace(/([a-zA-Z])([0-9])/g, '$1 $2').replace(/([0-9])([a-zA-Z])/g, '$1 $2');
+  const productoNorm = producto.trim();
   console.log(`\nBuscando: "${productoNorm}"`);
 
   try {
