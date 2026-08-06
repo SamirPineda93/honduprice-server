@@ -16,7 +16,7 @@ async function buscarGallo(producto) {
     const res = await fetch(`https://${APP_ID}-dsn.algolia.net/1/indexes/${INDEX}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Algolia-Application-Id': APP_ID, 'X-Algolia-API-Key': API_KEY },
-      body: JSON.stringify({ query: producto, hitsPerPage: 5, attributesToRetrieve: ['name', 'price', 'url'], numericFilters: ['visibility_search=1'] })
+      body: JSON.stringify({ query: producto, hitsPerPage: 8, attributesToRetrieve: ['name', 'price', 'url'], numericFilters: ['visibility_search=1'] })
     });
     const data = await res.json();
     const resultados = (data.hits || []).slice(0, 5).map(h => {
@@ -38,7 +38,7 @@ async function buscarJetstereo(producto) {
     const res = await fetch('https://jetstereo-search-engine.ent.us-west-1.aws.found.io/api/as/v1/engines/jetstereo-main-engine/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer search-5t4ro38vq5xc6femwcezfixr' },
-      body: JSON.stringify({ query: producto, page: { current: 1, size: 5 }, filters: { all: [{ sale_status: 'AVAILABLE' }] }, precision: 3 })
+      body: JSON.stringify({ query: producto, page: { current: 1, size: 8 }, filters: { all: [{ sale_status: 'AVAILABLE' }] }, precision: 3 })
     });
     const data = await res.json();
     const resultados = (data.results || []).slice(0, 5).map(r => {
@@ -76,7 +76,7 @@ async function buscarDiunsa(producto) {
     const data = await res.json();
     const items = data.data || [];
     const itemsOrdenados = [...items].sort((a, b) => parseFloat(a.newPrice || 999999) - parseFloat(b.newPrice || 999999));
-    const resultados = itemsOrdenados.slice(0, 5).map(item => {
+    const resultados = itemsOrdenados.slice(0, 8).map(item => {
       const nombre = item.name || '';
       const precioVal = item.newPrice || item.oldPrice || '';
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
