@@ -67,7 +67,7 @@ async function buscarJetstereo(producto) {
 // ── DIUNSA ───────────────────────────────────────────────────
 async function buscarDiunsa(producto) {
   try {
-    const res = await fetch('https://apicsm.dapplications.tech/api/em/material/paginate?skip=0&take=15', {
+    const res = await fetch('https://apicsm.dapplications.tech/api/em/material/paginate?skip=0&take=20', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Origin': 'https://www.diunsa.hn', 'Referer': 'https://www.diunsa.hn/' },
       body: JSON.stringify({ businessPartner: 1, storeId: null, groupCode: '0', officeCode: '0', type: 'PD', sortBy: 'category', sortOption: 'ASC', search: producto, filter: { priceMin: null, priceMax: null, brand: null } })
@@ -75,8 +75,7 @@ async function buscarDiunsa(producto) {
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
     const items = data.data || [];
-    const itemsOrdenados = [...items].sort((a, b) => parseFloat(a.newPrice || 999999) - parseFloat(b.newPrice || 999999));
-    const resultados = itemsOrdenados.slice(0, 8).map(item => {
+    const resultados = items.slice(0, 12).map(item => {
       const nombre = item.name || '';
       const precioVal = item.newPrice || item.oldPrice || '';
       const precio = precioVal ? `L. ${parseFloat(precioVal).toLocaleString('es-HN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '';
