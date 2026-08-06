@@ -163,18 +163,28 @@ function filtrarRelevantes(producto, resultados) {
   const numeros = palabras.filter(w => /^\d+$/.test(w));
   const palabrasClave = palabras.filter(w => !/^(de|el|la|los|las|un|una|con|para)$/.test(w));
   
+  // Palabras que indican variante específica del modelo (deben estar todas)
+  const variantesObligatorias = palabrasClave.filter(w => 
+    /^(pro|plus|ultra|max|lite|mini|air|se|neo|qled|oled|uhd|4k|5g)$/i.test(w)
+  );
+
   return resultados.map(r => {
     const productosFiltrados = r.productos.filter(p => {
       const nombreLower = p.nombre.toLowerCase();
       
-      // Si hay números en la búsqueda (modelos como 600, 55, 16), deben aparecer en el nombre
+      // Si hay números en la búsqueda, deben aparecer en el nombre
       if (numeros.length > 0) {
         const tieneNumero = numeros.some(n => {
-          // El número debe aparecer como parte del modelo, no como especificación
           const regex = new RegExp('\\b' + n + '\\b');
           return regex.test(nombreLower);
         });
         if (!tieneNumero) return false;
+      }
+      
+      // Variantes obligatorias (pro, ultra, lite, etc.) deben estar TODAS
+      if (variantesObligatorias.length > 0) {
+        const tieneVariantes = variantesObligatorias.every(v => nombreLower.includes(v));
+        if (!tieneVariantes) return false;
       }
       
       // Al menos 60% de palabras clave deben coincidir
