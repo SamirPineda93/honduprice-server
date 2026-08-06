@@ -240,11 +240,22 @@ INSTRUCCIONES ESTRICTAS:\n- Incluye SOLO productos que coincidan con la marca Y 
       "tienda": "nombre exacto de la tienda",
       "nombre": "nombre exacto del producto",
       "precio": "precio exacto",
-      "detalle": "característica breve"
+      "detalle": "característica breve",
+      "exacto": true
     }
   ],
-  "analisis": "2 oraciones comparando precios y cuál conviene más"
-}`
+  "sugerencias_ia": [
+    {
+      "tienda": "nombre exacto de la tienda",
+      "nombre": "nombre del producto relacionado",
+      "precio": "precio exacto",
+      "detalle": "por qué es similar"
+    }
+  ],
+  "analisis": "2 oraciones comparando precios exactos y cuál conviene más"
+}
+En "productos" pon SOLO los que coinciden exactamente con marca y modelo buscado.
+En "sugerencias_ia" pon los que son similares pero no son exactamente el modelo buscado.`
       }]
     })
   });
@@ -296,7 +307,23 @@ app.post('/buscar', async (req, res) => {
     }
 
     const analisis = await analizarConIA(productoNorm, resultadosExactos.length > 0 ? resultadosExactos : todosFiltrados);
-    analisis.sugerencias = sugerencias.slice(0, 4);
+    // Combinar sugerencias del filtro con sugerencias de la IA
+    const sugerenciasIA = analisis.sugerencias_ia || [];
+    const todasSugerencias = [...sugerenciasIA, ...sugerencias].slice(0, 5);
+    
+    // Restaurar URLs a sugerencias de la IA
+    todasSugerencias.forEach(s => {
+      if (!s.url) {
+        const tiendaData = resultados.find(r => r.tienda === s.tienda);
+        if (tiendaData) {
+          const prod = tiendaData.productos.find(p => p.nombre === s.nombre) || tiendaData.productos[0];
+          if (prod?.url) s.url = prod.url;
+        }
+      }
+    });
+    
+    analisis.sugerencias = todasSugerencias;
+    delete analisis.sugerencias_ia;
 
     // Asegurar que todas las tiendas aparezcan
     const tiendasEnAnalisis = new Set(analisis.productos.map(p => p.tienda));
