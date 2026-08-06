@@ -132,7 +132,7 @@ Responde SOLO JSON sin texto extra:
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: 'llama-3.1-8b-instant', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
   });
   console.log('Groq status:', res.status);
   const data = await res.json();
