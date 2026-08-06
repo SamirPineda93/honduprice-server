@@ -171,7 +171,28 @@ app.post('/buscar', async (req, res) => {
       return res.status(404).json({ error: 'No se encontraron resultados en las tiendas' });
     }
 
-    const analisis = await analizarConIA(productoNorm, resultados);
+    let analisis;
+    try {
+      analisis = await analizarConIA(productoNorm, resultados);
+    } catch(groqError) {
+      console.error('Groq fallo, usando fallback:', groqError.message);
+      // Fallback: mostrar todos los resultados sin filtro de IA
+      const todosProductos = [];
+      resultados.forEach(r => {
+        r.productos.slice(0, 2).forEach(p => {
+          todosProductos.push({ tienda: r.tienda, nombre: p.nombre, precio: p.precio, detalle: p.detalle, url: p.url });
+        });
+      });
+      todosProductos.sort((a, b) => {
+        const limpiar = p => parseFloat((p.precio || '').replace(/L\.?\s*/gi, '').replace(/,/g, '').trim()) || 999999;
+        return limpiar(a) - limpiar(b);
+      });
+      analisis = {
+        titulo: productoNorm,
+        productos: todosProductos,
+        analisis: 'Resultados encontrados en las tiendas. El precio más bajo aparece primero.'
+      };
+    }
 
     // Restaurar URLs
     (analisis.productos || []).forEach(p => {
